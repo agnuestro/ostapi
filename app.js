@@ -31,7 +31,7 @@ app.post("/docfile", async (request, response) => {
 app.get("/docfile/secno/:search", async (request, response) => {
     try {
         console.log(request.params.search);
-        var docfile = await DocfileModel.find({"filebody" : request.params.search}).exec();
+        var docfile = await DocfileModel.find({"secno" : request.params.search}).exec();
         response.send(docfile);
     } catch (error) {
         response.status(500).send(error);
