@@ -1,0 +1,22 @@
+{
+  "name": "ostapi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agnuestro/ostapi.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/agnuestro/ostapi/issues"
+  },
+  "homepage": "https://github.com/agnuestro/ostapi#readme",
+  "dependencies": {
+    "nodemon": "^2.0.3"
+  }
+}
