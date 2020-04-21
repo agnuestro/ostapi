@@ -28,7 +28,7 @@ app.post("/docfile", async (request, response) => {
     }
 });
 
-app.get("/docfile/find/:search", async (request, response) => {
+app.get("/docfile/secno/:search", async (request, response) => {
     try {
         console.log(request.params.search);
         var docfile = await DocfileModel.find({"filebody" : request.params.search}).exec();
