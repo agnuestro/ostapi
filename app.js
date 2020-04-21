@@ -8,6 +8,8 @@ Mongoose.connect("mongodb+srv://myAtlas:$ecret123@cluster0-iqd5r.mongodb.net/ost
         {useNewUrlParser: true, useUnifiedTopology: true});
 
 const DocfileModel = Mongoose.model("docfile", {
+    secno: String,
+    filetype: String,
     filename: String,
     filebody: String
 });
@@ -26,7 +28,17 @@ app.post("/docfile", async (request, response) => {
     }
 });
 
-app.get("/docfile/find", async (request, response) => {
+app.get("/docfile/find/:search", async (request, response) => {
+    try {
+        console.log(request.params.search);
+        var docfile = await DocfileModel.find({"filebody" : request.params.search}).exec();
+        response.send(docfile);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+app.get("/docfile/list", async (request, response) => {
     try {
         var docfile = await DocfileModel.find().exec();
         response.send(docfile);
@@ -38,6 +50,7 @@ app.get("/docfile/find", async (request, response) => {
 
 app.get("/docfile/:id", async (request, response) => {
     try {
+        console.log(request.params.id);
         var docfile = await DocfileModel.findById(request.params.id).exec();
         response.send(docfile);
     } catch (error) {

@@ -4,7 +4,8 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "nodemon app.js"
+    "dev": "nodemon app.js",
+	"start" : "node app.js"
   },
   "repository": {
     "type": "git",
@@ -17,6 +18,8 @@
   },
   "homepage": "https://github.com/agnuestro/ostapi#readme",
   "dependencies": {
+    "express": "^4.17.1",
+    "mongoose": "^5.9.10",
     "nodemon": "^2.0.3"
   }
 }
