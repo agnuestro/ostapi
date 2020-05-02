@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie-edge"/>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+  <style>
+    table, th, td {
+      border: 1px solid black;
+    }
+  </style>
+  <title>OST API</title>
+</head>
+<body>
+  <div>
+    <h1 class="text-left display-12 my-8">OST API</h1>
+    <table>
+      <form action="upload" method="POST" enctype="multipart/form-data">
+        <tr>
+          <td><label for="secno">SEC No:</label></td>
+          <td><input type="text" name="secno" id="secno" style="text-transform: uppercase;" required></td>
+        </tr>
+        <tr>
+          <td><label for="formtype">Form Type:</label></td>
+          <td><input type="text" name="formtype" id="formtype"></td>
+        </tr>
+        <tr>
+          <td><label for="period">Period:</label></td>
+          <td><input type="text" name="period" id="period"></td>
+        </tr>
+        <tr>
+          <td>Upload file:</td>
+          <td><input type="file" name="file1" id="file1"></td>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: center;"><input type="submit" value="Submit"></td>
+        </tr>
+      </form>
+    </table>
+  </div>
+  <hr>
+  <div>
+    <table>
+<%    if(files){                          %>
+<%      files.forEach( function(file) {   %>
+          <tr>
+            <td>
+<%=           file.filename %>
+            </td>
+            <td>
+<%=           file.metadata.originalname %>
+            </td>
+            <td>
+              <form method="GET" action="/image/<%= file.filename %>" target="_blank">
+                <button>View</button>
+              </form>
+            </td>
+            <td>
+              <form method="POST" action="/files/<%= file._id %>?_method=DELETE">
+                <button>Delete</button>
+              </form>
+            </td>
+          </tr>
+<%      })                                %>
+<%    } else {                            %>
+        <p>No files to show</p>
+<%    }                                   %>
+    </table>
+  </div>
+</body>
+</html>

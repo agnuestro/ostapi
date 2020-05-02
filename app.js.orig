@@ -1,0 +1,347 @@
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
+const GridFsStorage = require('multer-gridfs-storage');
+const Grid = require('gridfs-stream');
+const methodOverride = require('method-override');
+
+var app = express();
+
+// Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(methodOverride('_method'));
+
+//app.use(BodyParser.urlencoded({ extended: true }));
+app.set('view engine', 'ejs');
+
+const mongoURI = 'mongodb+srv://myAtlas:$ecret123@cluster0-iqd5r.mongodb.net/ostdb';
+
+const options = {
+    useUnifiedTopology: true,
+    useNewUrlParser: true,
+};
+
+const conn = mongoose.createConnection(mongoURI, options);
+
+//mongoose.connect(mongoURI, 
+//        {useNewUrlParser: true, useUnifiedTopology: true});
+
+// Init gfs
+let gfs;
+
+conn.once('open', () => {
+    gfs = Grid(conn.db, mongoose.mongo);
+    gfs.collection('docfile');
+})
+
+
+
+// Create storage engine
+const storage = new GridFsStorage({
+    url: mongoURI,
+    file: (req, file) => {
+        return new Promise( (resolve, reject) => {
+            crypto.randomBytes(16, (err, buf) => {
+                if (err) {
+                    return reject(err);
+                }
+                const filename = buf.toString('hex') + path.extname(file.originalname);
+                const fileInfo = {
+                    filename: filename,
+                    bucketName: 'docfile',
+                    metadata: [{
+                        secno:'CS11111',
+                        formtype: 'GIS',
+                        period: '2019'
+                    }]
+                };
+                resolve(fileInfo);
+            });
+        });
+    }
+});
+
+const upload = multer({storage});
+
+// @route GET /
+// @desc Loads form
+app.get('/', (req, res) => {
+    gfs.files.find().toArray( (err, files) => {
+        // Check if files
+        if (!files || files.length === 0) {
+            res.render('index', {files: false});
+        } else {
+            files.map(file => {
+                if( file.contentType === 'image/jpeg' ||
+                    file.contentType === 'image/png' ) {
+                    file.isImage = true;
+                } else {
+                    file.isImage = false;
+                }
+            });
+            res.render('index', {files: files});
+        }
+    })
+});
+
+// https://www.youtube.com/watch?v=3f5Q9wDePzY
+// 29:08
+
+// @route POST /upload
+// @desc  Uploads files to DB
+app.post('/upload', upload.single('file'), (req, res) => {
+    res.json({file: req.file});
+ //   res.redirect('/');
+});
+
+
+//api
+
+app.post("/docfile", async (request, response) => {
+    try {
+        var docfile = new DocfileModel(request.body);
+        var result = await docfile.save();
+        response.send(result);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+
+const DocfileModel = mongoose.model("docfile", {
+    secno: String,
+    filetype: String,
+    filename: String,
+    filebody: String
+});
+
+
+
+
+// @route GET /files
+// @desc  Display all files in JSON
+app.get('/files', (req, res) => {
+    gfs.files.find().toArray( (err, files) => {
+        // Check if files
+        if(!files || files.length === 0) {
+            return res.status(404).json({
+                err: 'No files exist'
+            });
+        }
+        // Files exist
+        return res.json(files);
+    });
+})
+
+
+// @route GET /files/:filename
+// @desc  Display single file
+app.get('/files/:filename', (req, res) => {
+    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // File exists
+        return res.json(file);
+
+        // Files exist
+        return res.json(files);
+    });
+})
+
+
+
+// @route GET /image/:filename
+// @desc  Display image
+app.get('/image/:filename', (req, res) => {
+    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // Check if image
+        if( file.contentType === 'image/jpeg' || 
+            file.contentType === 'image/png' || 
+            file.contentType === 'application/pdf') {
+            // Read output to browser
+            const readstream = gfs.createReadStream(file.filename);
+            readstream.pipe(res);
+        } else {
+            res.status(404).json({
+                err: 'Not an image'
+            });
+        }
+
+    });
+})
+
+
+// @route GET /imageid/:filename
+// @desc  Display image by id
+app.get('/imageid/:id', (req, res) => {
+    const file_id = req.params.id;
+    gfs.files.find({_id: file_id}).toArray( (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // Check if image
+        if( file.contentType === 'image/jpeg' || 
+            file.contentType === 'image/png' ||
+            file.contentType === 'application/pdf' || 1 === 1) {
+            // Read output to browser
+            const readstream = gfs.createReadStream(file.filename);
+            readstream.pipe(res);
+        } else {
+            res.status(404).json({
+                err: 'Not an image'
+            });
+        }
+    });
+})
+
+
+
+// @route DELETE /files/:id
+// @desc  Delete file
+app.delete('/files/:id', (req, res) => {
+    gfs.remove({_id: req.params.id, root: 'docfile'}, (err, gridStore) => {
+        if(err) {
+            return res.status(404).json({ err: err })
+        }
+
+        res.redirect('/');
+    })
+})
+
+
+
+
+app.get("/docfile/secno/:search", async (request, response) => {
+    try {
+        var docfile = await DocfileModel.find({"secno" : request.params.search}).exec();
+        response.send(docfile);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+app.get("/docfile/:id", async (request, response) => {
+    try {
+        var docfile = await DocfileModel.findById(request.params.id).exec();
+        response.send(docfile);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+app.get("/doclist", async (request, response) => {
+    try {
+        var docfile = await DocfileModel.find().exec();
+        response.send(docfile);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+
+app.put("/docfile/:id", async (request, response) => {
+    try {
+        var docfile = await PersonModel.findById(request.params.id).exec();
+        docfile.set(request.body);
+        var result = await docfile.save();
+        response.send(result);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+app.delete("/docfile/:id", async (request, response) => {
+    try {
+        var result = await DocfileModel.deleteOne({ _id: request.params.id }).exec();
+        response.send(result);
+    } catch (error) {
+        response.status(500).send(error);
+    }
+});
+
+
+// api test
+app.get('/api/users', (req, res) => {
+    var user_id = req.query['id'];
+    var token = req.query['token'];
+    var geo = req.query['geo'];
+    res.send(user_id + ' ' + token + ' ' + geo);
+});
+
+app.get('/api/:version', function(req, res) {
+    res.send(req.params.version);
+});
+
+
+// parameter middleware that will run before the next routes
+app.param('name', function(req, res, next, name) {
+    // check if the user with that name exists
+    // do some validations
+    // add -dude to the name
+    var modified = name + '-dude';
+    // save name to the request
+    req.name = modified;
+    next();
+});
+
+// http://localhost:8080/api/users/chris
+app.get('/api/users/:name', function(req, res) {
+    // the user was found and is available in req.user
+    res.send('What is up ' + req.name + '!');
+});
+
+// POST http://localhost:8080/api/users
+// parameters sent with 
+app.post('/api/users', (req, res) => {
+    var user_id = req.body.user_id;
+    var token = req.body.token;
+    var geo = req.body.geo;
+    res.send('user_id='+user_id + ' token=' + token + ' geo=' + geo);
+});
+
+app.get('/starter', (req, res) => {
+    console.log('starter');
+    res.sendFile(__dirname+"/starter.html");
+});
+
+app.post('/login', (req, res) => {
+    var user_name = req.body.user;
+    var password = req.body.password;
+    console.log("username="+user_name+" pasword="+password);
+    res.end("yes");
+});
+
+app.get('handle', (req, res) => {
+
+});
+
+app.post('handle', (req, res) => {
+    var query1 = req.body.var1;
+    var query2 = req.body.var2;
+});
+
+
+
+// listen for requests
+const port = process.env.PORT || 5000;
+app.listen(port, () => {
+    console.log('listening at port ' + port);
+})
+

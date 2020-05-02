@@ -1,84 +1,235 @@
-const Express = require("express");
-const Mongoose = require("mongoose");
-const BodyParser = require("body-parser");
+const express = require("express");
+const mongoose = require("mongoose");
+const bodyParser = require("body-parser");
+const path = require('path');
+const crypto = require('crypto');
+const multer = require('multer');
+const GridFsStorage = require('multer-gridfs-storage');
+const Grid = require('gridfs-stream');
+const methodOverride = require('method-override');
 
-var app = Express();
+var app = express();
 
-Mongoose.connect("mongodb+srv://myAtlas:$ecret123@cluster0-iqd5r.mongodb.net/ostdb", 
-        {useNewUrlParser: true, useUnifiedTopology: true});
+// Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(methodOverride('_method'));
+app.use(express.static('public'));
+//app.use(express.json({limit: '1mb'}));
 
-const DocfileModel = Mongoose.model("docfile", {
-    secno: String,
-    filetype: String,
-    filename: String,
-    filebody: String
-});
+app.set('view engine', 'ejs');
 
-app.use(BodyParser.json());
-app.use(BodyParser.urlencoded({ extended: true }));
+const mongoURI = 'mongodb+srv://myAtlas:$ecret123@cluster0-iqd5r.mongodb.net/ostdb';
+const options = {
+    useUnifiedTopology: true,
+    useNewUrlParser: true,
+};
+const conn = mongoose.createConnection(mongoURI, options);
 
+// Init gfs
+let gfs;
 
-app.post("/docfile", async (request, response) => {
-    try {
-        var docfile = new DocfileModel(request.body);
-        var result = await docfile.save();
-        response.send(result);
-    } catch (error) {
-        response.status(500).send(error);
+conn.once('open', () => {
+    gfs = Grid(conn.db, mongoose.mongo);
+    gfs.collection('docfile');
+})
+
+// Create storage engine
+const storage = new GridFsStorage({
+    url: mongoURI,
+    file: (req, file) => {
+        return new Promise( (resolve, reject) => {
+            let ts       = Date.now();
+            let date_obj = new Date(ts);
+            let datetimefield = date_obj.getFullYear()
+            + ("0" + (date_obj.getMonth() + 1)).slice(-2)
+            + ("0" + date_obj.getDate()).slice(-2)
+            + ("0" + date_obj.getHours()).slice(-2)
+            + ("0" + date_obj.getMinutes()).slice(-2)
+            + ("0" + date_obj.getSeconds()).slice(-2);
+
+            let secno = req.body.secno.toUpperCase();
+            let formtype = req.body.formtype.toUpperCase();
+            let period = req.body.period.toUpperCase();
+
+            const filename = secno + "_"
+                + formtype + "_"
+                + period + "_"
+                + datetimefield
+                + path.extname(file.originalname);
+//            const filename = path.basename(file.originalname,  path.extname(file.originalname)) + "_"
+//                + datetimefield + path.extname(file.originalname);
+
+//console.log('inside storage');
+//console.log(file);
+//console.log('the request');
+//console.log(req.body.secno);
+            const fileInfo = {
+                filename: filename,
+                bucketName: 'docfile',
+                metadata: {
+                    secno:secno,
+                    formtype: formtype,
+                    period: period,
+                    desc: 'Description of the document',
+                    originalname: file.originalname
+                }
+            };
+            resolve(fileInfo);
+        });
     }
 });
 
-app.get("/docfile/secno/:search", async (request, response) => {
-    try {
-        console.log(request.params.search);
-        var docfile = await DocfileModel.find({"secno" : request.params.search}).exec();
-        response.send(docfile);
-    } catch (error) {
-        response.status(500).send(error);
-    }
+const upload = multer({storage});
+
+// @route POST /upload
+// @desc  Uploads files to DB
+app.post('/upload', upload.single('file1'), (req, res) => {
+//   res.json({file: req.file});
+//res.send(req.body);
+//    console.log(req.file.metadata.secno);
+  res.redirect('/');
 });
 
-app.get("/docfile/list", async (request, response) => {
-    try {
-        var docfile = await DocfileModel.find().exec();
-        response.send(docfile);
-    } catch (error) {
-        response.status(500).send(error);
-    }
+//app.post('/upload', (req, res) => {
+//    upload.single(req, res, (err) => {
+//        if (err) {
+//            res.render('index', {
+//                msg: err
+//            });
+//        } else {
+//            console.log(req.file);
+//            res.send(req.file);
+//        }
+//    });
+//});
+
+
+// @route GET /
+// @desc Loads form
+app.get('/', (req, res) => {
+  gfs.files.find().toArray( (err, files) => {
+//    res.send(files);
+    res.render('index', {files: files});
+
+        // Check if files
+//        if (!files || files.length === 0) {
+//            res.render('index', {files: false});
+//        } else {
+//            files.map(file => {
+//                if( file.contentType === 'image/jpeg' ||
+//                    file.contentType === 'image/png' ) {
+//                    file.isImage = true;
+//                } else {
+//                    file.isImage = false;
+//                }
+//            });
+//            res.render('index', {files: files});
+//        }
+    })
 });
 
 
-app.get("/docfile/:id", async (request, response) => {
-    try {
-        console.log(request.params.id);
-        var docfile = await DocfileModel.findById(request.params.id).exec();
-        response.send(docfile);
-    } catch (error) {
-        response.status(500).send(error);
-    }
-});
+// @route GET /files
+// @desc  Display all files in JSON
+app.get('/files', (req, res) => {
+    gfs.files.find().toArray( (err, files) => {
+        // Check if files
+        if(!files || files.length === 0) {
+            return res.status(404).json({
+                err: 'No files exist'
+            });
+        }
+        // Files exist
+        return res.json(files);
+    });
+})
+
+
+// @route GET /files/:filename
+// @desc  Display single file
+app.get('/files/:filename', (req, res) => {
+    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // File exists
+        return res.json(file);
+
+        // Files exist
+        return res.json(files);
+    });
+})
 
 
 
-app.put("/docfile/:id", async (request, response) => {
-    try {
-        var docfile = await PersonModel.findById(request.params.id).exec();
-        docfile.set(request.body);
-        var result = await docfile.save();
-        response.send(result);
-    } catch (error) {
-        response.status(500).send(error);
-    }
-});
+// @route GET /image/:filename
+// @desc  Display image
+app.get('/image/:filename', (req, res) => {
+    gfs.files.findOne({filename: req.params.filename}, (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // Check if image
+        if( file.contentType === 'image/jpeg' || 
+            file.contentType === 'image/png' || 
+            file.contentType === 'application/pdf') {
+            // Read output to browser
+            const readstream = gfs.createReadStream(file.filename);
+            readstream.pipe(res);
+        } else {
+            res.status(404).json({
+                err: 'Not an image'
+            });
+        }
 
-app.delete("/docfile/:id", async (request, response) => {
-    try {
-        var result = await DocfileModel.deleteOne({ _id: request.params.id }).exec();
-        response.send(result);
-    } catch (error) {
-        response.status(500).send(error);
-    }
-});
+    });
+})
+
+
+// @route GET /imageid/:filename
+// @desc  Display image by id
+app.get('/imageid/:id', (req, res) => {
+    const file_id = req.params.id;
+    gfs.files.find({_id: file_id}).toArray( (err, file) => {
+        // Check if file
+        if(!file || file.length === 0) {
+            return res.status(404).json({
+                err: 'No file exists'
+            });
+        }
+        // Check if image
+        if( file.contentType === 'image/jpeg' || 
+            file.contentType === 'image/png' ||
+            file.contentType === 'application/pdf' || 1 === 1) {
+            // Read output to browser
+            const readstream = gfs.createReadStream(file.filename);
+            readstream.pipe(res);
+        } else {
+            res.status(404).json({
+                err: 'Not an image'
+            });
+        }
+    });
+})
+
+// @route DELETE /files/:id
+// @desc  Delete file
+app.delete('/files/:id', (req, res) => {
+    gfs.remove({_id: req.params.id, root: 'docfile'}, (err, gridStore) => {
+        if(err) {
+            return res.status(404).json({ err: err })
+        }
+
+        res.redirect('/');
+    })
+})
 
 
 // listen for requests

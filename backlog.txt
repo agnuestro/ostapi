@@ -1,0 +1,5 @@
+1. turn images into links and link it to the files.
+2. Add secno, formtype, period into the upload form and use it as filename.
+3. oauth setup
+4. api's should not redirect to web page, specially post
+5. use GridFSbucket instead of GridFSstore(obsolete)
