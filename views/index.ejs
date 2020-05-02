@@ -29,15 +29,28 @@
         </tr>
         <tr>
           <td><label for="formtype">Form Type:</label></td>
-          <td><input type="text" name="formtype" id="formtype"></td>
+          <td>
+            <select name="formtype" id="formtype" required>
+              <option hidden disabled selected value> -- select a form type -- </option>
+              <option value="GIS">General Information Sheet</option>
+              <option value="AFS">Audited Financial Statement</option>
+            </select>
+          </td>
         </tr>
         <tr>
           <td><label for="period">Period:</label></td>
-          <td><input type="text" name="period" id="period"></td>
+          <td>
+            <select name="period" id="period" required>
+              <option hidden disabled selected value> -- select period -- </option>
+<%            for (var i = new Date().getFullYear(); i > 2014; i--) { %>
+                <option value="<%= i %>"><%= i %></option>
+<%            } %>
+            </select>
+          </td>
         </tr>
         <tr>
           <td>Upload file:</td>
-          <td><input type="file" name="file1" id="file1"></td>
+          <td><input type="file" name="file1" id="file1" required></td>
         </tr>
         <tr>
           <td colspan="2" style="text-align: center;"><input type="submit" value="Submit"></td>

@@ -1,3 +1,4 @@
+// https://guarded-woodland-56217.herokuapp.com
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
@@ -108,24 +109,10 @@ app.post('/upload', upload.single('file1'), (req, res) => {
 // @route GET /
 // @desc Loads form
 app.get('/', (req, res) => {
-  gfs.files.find().toArray( (err, files) => {
+//{"metadata.secno":"CN200912345"}
+  gfs.files.find().sort({"filename":1}).toArray( (err, files) => {
 //    res.send(files);
     res.render('index', {files: files});
-
-        // Check if files
-//        if (!files || files.length === 0) {
-//            res.render('index', {files: false});
-//        } else {
-//            files.map(file => {
-//                if( file.contentType === 'image/jpeg' ||
-//                    file.contentType === 'image/png' ) {
-//                    file.isImage = true;
-//                } else {
-//                    file.isImage = false;
-//                }
-//            });
-//            res.render('index', {files: files});
-//        }
     })
 });
 
